@@ -1,0 +1,26 @@
+[package]
+name = "vellum"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hayro = "0.8"
+# Same vello_cpu hayro uses, with parallel rasterization enabled.
+vello_cpu = { version = "0.3", default-features = false, features = ["std", "u8_pipeline", "multithreading"] }
+gpui = { git = "https://github.com/zed-industries/zed", branch = "main" }
+gpui_platform = { git = "https://github.com/zed-industries/zed", branch = "main", features = ["font-kit"] }
+image = { version = "0.25", default-features = false }
+smallvec = "1"
+async-channel = "2"
+anyhow = "1"
+
+# hayro rasterizes on the CPU; keep dependencies optimized even in debug builds.
+[profile.dev]
+# Keep per-frame UI work cheap enough for smooth scrolling in debug builds too.
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[build-dependencies]
+winresource = "0.1"
