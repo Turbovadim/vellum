@@ -3,6 +3,7 @@
 mod assets;
 mod document;
 mod fonts;
+mod memory;
 mod theme;
 mod viewer;
 
@@ -122,10 +123,73 @@ fn menus() -> Vec<Menu> {
     ]
 }
 
-fn main() {
-    let initial: Option<PathBuf> = std::env::args_os().nth(1).map(PathBuf::from);
+fn open_window(path: Option<PathBuf>, cx: &mut App) {
+    let bounds = Bounds::centered(None, size(px(1080.), px(820.)), cx);
+    cx.open_window(
+        WindowOptions {
+            window_bounds: Some(WindowBounds::Windowed(bounds)),
+            titlebar: Some(TitlebarOptions {
+                title: Some("Vellum".into()),
+                appears_transparent: true,
+                // Centered on the 51pt toolbar (52pt minus its bottom border).
+                traffic_light_position: Some(point(px(18.), px(18.5))),
+            }),
+            window_min_size: Some(size(px(520.), px(360.))),
+            app_id: Some("vellum".into()),
+            ..Default::default()
+        },
+        |window, cx| {
+            let view = cx.new(|cx| VellumApp::new(window, cx));
+            if let Some(path) = path {
+                view.update(cx, |app, cx| app.open_path(path, window, cx));
+            }
+            view
+        },
+    )
+    .expect("failed to open window");
+}
 
-    application().with_assets(assets::Assets).run(move |cx: &mut App| {
+/// Opens each document in an empty window if there is one, else in a new window.
+fn open_paths(paths: Vec<PathBuf>, cx: &mut App) {
+    for path in paths {
+        let empty = cx
+            .windows()
+            .into_iter()
+            .filter_map(|w| w.downcast::<VellumApp>())
+            .find(|w| w.read(cx).is_ok_and(|app| app.is_empty()));
+        match empty {
+            Some(handle) => {
+                handle
+                    .update(cx, |app, window, cx| {
+                        window.activate_window();
+                        app.open_path(path, window, cx);
+                    })
+                    .ok();
+            }
+            None => open_window(Some(path), cx),
+        }
+    }
+    cx.activate(true);
+}
+
+/// Documents opened from Finder (double-click, "Open With", dropping on the Dock icon) arrive
+/// as file:// URLs rather than command-line arguments.
+fn file_paths(urls: Vec<String>) -> Vec<PathBuf> {
+    urls.iter()
+        .filter_map(|u| url::Url::parse(u).ok()?.to_file_path().ok())
+        .collect()
+}
+
+fn main() {
+    let initial: Vec<PathBuf> = std::env::args_os().skip(1).map(PathBuf::from).collect();
+
+    let app = application().with_assets(assets::Assets);
+    let (url_tx, url_rx) = async_channel::unbounded();
+    app.on_open_urls(move |urls| {
+        url_tx.try_send(file_paths(urls)).ok();
+    });
+
+    app.run(move |cx: &mut App| {
         cx.bind_keys(key_bindings());
         cx.set_menus(menus());
         cx.on_action(|_: &Quit, cx| cx.quit());
@@ -136,28 +200,23 @@ fn main() {
         })
         .detach();
 
-        let bounds = Bounds::centered(None, size(px(1080.), px(820.)), cx);
-        cx.open_window(
-            WindowOptions {
-                window_bounds: Some(WindowBounds::Windowed(bounds)),
-                titlebar: Some(TitlebarOptions {
-                    title: Some("Vellum".into()),
-                    appears_transparent: true,
-                    traffic_light_position: Some(point(px(18.), px(20.))),
-                }),
-                window_min_size: Some(size(px(520.), px(360.))),
-                app_id: Some("vellum".into()),
-                ..Default::default()
-            },
-            |window, cx| {
-                let view = cx.new(|cx| VellumApp::new(window, cx));
-                if let Some(path) = initial.clone() {
-                    view.update(cx, |app, cx| app.open_path(path, window, cx));
-                }
-                view
-            },
-        )
-        .expect("failed to open window");
-        cx.activate(true);
+        // A launch from Finder delivers its documents before this runs.
+        let mut paths = initial;
+        while let Ok(more) = url_rx.try_recv() {
+            paths.extend(more);
+        }
+        if paths.is_empty() {
+            open_window(None, cx);
+            cx.activate(true);
+        } else {
+            open_paths(paths, cx);
+        }
+
+        cx.spawn(async move |cx| {
+            while let Ok(paths) = url_rx.recv().await {
+                cx.update(|cx| open_paths(paths, cx));
+            }
+        })
+        .detach();
     });
 }

@@ -5142,7 +5142,9 @@ dependencies = [
  "gpui_platform",
  "hayro",
  "image",
+ "libc",
  "smallvec",
+ "url",
  "vello_cpu",
  "winresource",
 ]

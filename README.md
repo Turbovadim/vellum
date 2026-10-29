@@ -18,7 +18,7 @@ repo) and the pure-Rust [hayro](https://github.com/LaurenzV/hayro) rasterizer. N
 - **Text** — search with highlighted matches, drag-select (double-click word, triple-click line) and copy,
   highlight annotations (in memory)
 - **Sharp at any zoom** — pages are rendered at the display's exact pixel density and placed on whole device
-  pixels, so text maps 1:1 onto the screen; past 24 MP a page switches to 1024 px tiles covering only what's
+  pixels, so text maps 1:1 onto the screen; past 8 MP a page switches to 1024 px tiles covering only what's
   visible, so it stays crisp up to 1600% without memory growing with zoom
 - **Smooth** — browser-style eased scrolling (100 px per wheel notch, like Chromium), pages rendered on a
   background pool nearest-to-screen first with large pages rasterized across several threads, thumbnails as
@@ -26,7 +26,8 @@ repo) and the pure-Rust [hayro](https://github.com/LaurenzV/hayro) rasterizer. N
   on 1000-page documents
 - **Robust text** — fonts a PDF references but doesn't embed (common in Windows-generated forms) are loaded from
   the system (Times New Roman, Arial, Courier New), so Cyrillic and other non-Latin text renders
-- Inspector with document info, open via dialog, command line, drag and drop, or Explorer's "Open with"
+- Inspector with document info, open via dialog, command line, drag and drop, Explorer's "Open with" or
+  Finder's "Open With"
 
 ## Build and run
 
@@ -40,7 +41,7 @@ On Windows, if the project lives in a deeply nested folder you may hit the 260-c
 linking; point cargo at a short build directory, e.g. `set CARGO_TARGET_DIR=C:\vellum-target`.
 
 `python tools/make_sample.py sample.pdf` regenerates the bundled test document, and `python tools/make_icon.py`
-regenerates the app icon.
+regenerates the app icons (`.ico` and `.icns`).
 
 ## Install on Windows
 
@@ -51,6 +52,16 @@ powershell -ExecutionPolicy Bypass -File tools\install-windows.ps1
 Builds a release exe, copies it to `%LOCALAPPDATA%\Programs\Vellum`, adds a Start menu entry and registers it for
 `.pdf` files (per-user, no admin rights). Then right-click any PDF → **Open with → Vellum** (tick "Always" to make
 it the default), or pick it under **Settings → Apps → Default apps**. Undo with `tools\uninstall-windows.ps1`.
+
+## Install on macOS
+
+```
+tools/install-macos.sh
+```
+
+Builds a release `Vellum.app` into `~/Applications` and registers it as a PDF viewer. Then right-click any PDF →
+**Open With → Vellum**, or make it the default under **Get Info → Open with → Change All**. Undo by deleting
+`~/Applications/Vellum.app`.
 
 ## Shortcuts (Ctrl on Windows/Linux, ⌘ on macOS)
 
@@ -72,8 +83,8 @@ it the default), or pick it under **Settings → Apps → Default apps**. Undo w
 
 - Encrypted / password-protected PDFs aren't supported yet (hayro limitation).
 - Highlights aren't saved back to the file.
-- Developed and tested on Windows 11. GPUI also targets macOS and Linux, and the code has paths for both
-  (native traffic lights, Liberation/Apple system fonts), but they haven't been built or tested yet.
+- Tested on Windows 11 and macOS. GPUI also targets Linux, and the code has paths for it (Liberation fonts), but
+  it hasn't been built or tested there yet.
 
 ## License
 

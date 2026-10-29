@@ -1,7 +1,8 @@
-"""Renders assets/vellum.ico: a blue rounded tile with a white document and a magnifier.
+"""Renders assets/vellum.ico and assets/vellum.icns: a blue rounded tile with a white
+document and a magnifier.
 
 Pure Python (no Pillow): shapes are drawn with signed distance functions and
-supersampled, then each size is stored as a PNG inside the .ico container.
+supersampled, then each size is stored as a PNG inside the .ico / .icns container.
 """
 
 import math
@@ -10,6 +11,10 @@ import sys
 import zlib
 
 SIZES = [16, 20, 24, 32, 40, 48, 64, 128, 256]
+# icns element types holding PNG data, by pixel size.
+ICNS_TYPES = [(b"icp4", 16), (b"icp5", 32), (b"icp6", 64), (b"ic07", 128), (b"ic08", 256), (b"ic09", 512), (b"ic10", 1024)]
+# macOS icons draw their tile 824 px wide on a 1024 px canvas; ours spans 88% of the canvas.
+MAC_SCALE = (824 / 1024) / 0.88
 
 
 def rounded_rect(px, py, x0, y0, x1, y1, r):
@@ -74,7 +79,7 @@ def shade(u, v):
     return c
 
 
-def render(size, ss=4):
+def render(size, ss=4, scale=1.0):
     rows = []
     for y in range(size):
         row = bytearray()
@@ -82,8 +87,8 @@ def render(size, ss=4):
             acc = [0.0, 0.0, 0.0, 0.0]
             for sy in range(ss):
                 for sx in range(ss):
-                    u = (x + (sx + 0.5) / ss) / size
-                    v = (y + (sy + 0.5) / ss) / size
+                    u = 0.5 + ((x + (sx + 0.5) / ss) / size - 0.5) / scale
+                    v = 0.5 + ((y + (sy + 0.5) / ss) / size - 0.5) / scale
                     r, g, b, a = shade(u, v)
                     acc[0] += r * a
                     acc[1] += g * a
@@ -127,6 +132,15 @@ def main(out):
     with open(out.replace(".ico", "-256.png"), "wb") as f:
         f.write(images[-1][1])
     print(f"wrote {out}")
+
+    elements = b""
+    for kind, size in ICNS_TYPES:
+        data = png(size, render(size, 4 if size <= 64 else 2, MAC_SCALE))
+        elements += kind + struct.pack(">I", 8 + len(data)) + data
+    icns = out.replace(".ico", ".icns")
+    with open(icns, "wb") as f:
+        f.write(b"icns" + struct.pack(">I", 8 + len(elements)) + elements)
+    print(f"wrote {icns}")
 
 
 if __name__ == "__main__":

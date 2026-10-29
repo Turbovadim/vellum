@@ -1,6 +1,7 @@
 //! The Vellum window: unified toolbar, sidebar (thumbnails / contents / search
 //! results) and a virtualized, zoomable page canvas.
 
+use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 use std::path::PathBuf;
@@ -10,7 +11,7 @@ use std::time::{Duration, Instant};
 use gpui::{
     AnyElement, App, Bounds, ClickEvent, ElementInputHandler, EntityInputHandler, UTF16Selection, canvas, ClipboardItem, Context, CursorStyle, ExternalPaths,
     FocusHandle, FontWeight, HighlightStyle, Hsla, KeyDownEvent, MouseButton, MouseDownEvent,
-    MouseMoveEvent, MouseUpEvent, PathPromptOptions, PinchEvent, Pixels, Point, RenderImage,
+    MouseMoveEvent, MouseUpEvent, ObjectFit, PathPromptOptions, PinchEvent, Pixels, Point, RenderImage, DevicePixels, Size,
     ScrollDelta, ScrollEvent, ScrollHandle, SharedString, Stateful, StyledText, Task, Window,
     WindowControlArea, actions, div, img, point, prelude::*, px, svg, ListAlignment, ListState,
     UniformListScrollHandle, fill, list, uniform_list,
@@ -58,6 +59,9 @@ actions!(
 );
 
 const TOOLBAR_H: f32 = 52.0;
+/// Where toolbar content starts. On macOS this leaves the traffic lights' 18pt inset
+/// between the green light and the sidebar icon.
+const TOOLBAR_LEFT: f32 = if cfg!(target_os = "macos") { 86.0 } else { 12.0 };
 const PAD: f32 = 20.0;
 const GAP: f32 = 14.0;
 const PAIR_GAP: f32 = 6.0;
@@ -67,7 +71,7 @@ const THUMB_W: f32 = 112.0;
 const THUMB_MAX_H: f32 = 150.0;
 /// Largest whole-page bitmap; beyond this, the visible part is rendered as tiles
 /// on top of a whole-page backdrop of this size.
-const MAX_RENDER_PIXELS: f64 = 24_000_000.0;
+const MAX_RENDER_PIXELS: f64 = 8_000_000.0;
 /// Extra area around the viewport (display px) whose tiles are rendered ahead.
 const TILE_MARGIN: f32 = 256.0;
 const SIDEBAR_MIN: f32 = 150.0;
@@ -186,8 +190,56 @@ struct Anchor {
 }
 
 struct PageImage {
-    image: Arc<RenderImage>,
+    bitmap: Bitmap,
     job: Job,
+}
+
+/// A rendered bitmap. GPUI copies an image into the window's GPU atlas the first time it is
+/// painted and afterwards finds it there by id, reading the pixels only on a miss. Entries
+/// leave the atlas only through `drop_image`, so once a bitmap has been painted its RAM copy
+/// is swapped for a 1x1 stand-in with the same id, halving what every shown page costs.
+/// Paint through `bitmap_img` so the stand-in's size never matters.
+struct Bitmap {
+    image: Arc<RenderImage>,
+    size: Size<DevicePixels>,
+    in_ram: bool,
+    /// Handed to GPUI this frame; it is uploaded by the time the next frame renders.
+    shown: Cell<bool>,
+}
+
+impl Bitmap {
+    fn new(image: Arc<RenderImage>) -> Self {
+        Self {
+            size: image.size(0),
+            image,
+            in_ram: true,
+            shown: Cell::new(false),
+        }
+    }
+
+    fn paint(&self) -> Arc<RenderImage> {
+        self.shown.set(true);
+        self.image.clone()
+    }
+
+    /// Bytes held in RAM plus on the GPU.
+    fn cost(&self) -> usize {
+        let bytes = self.size.width.0 as usize * self.size.height.0 as usize * 4;
+        if self.in_ram { bytes * 2 } else { bytes }
+    }
+
+    /// Returns whether the RAM copy was released.
+    fn release_if_uploaded(&mut self) -> bool {
+        let release = self.in_ram && self.shown.get();
+        if release {
+            let pixel = image::Frame::new(image::RgbaImage::new(1, 1));
+            let mut stand_in = RenderImage::new(smallvec::smallvec![pixel]);
+            stand_in.id = self.image.id;
+            self.image = Arc::new(stand_in);
+            self.in_ram = false;
+        }
+        release
+    }
 }
 
 struct Doc {
@@ -196,7 +248,7 @@ struct Doc {
     pages: HashMap<usize, PageImage>,
     thumbs: HashMap<usize, PageImage>,
     /// Full-resolution tiles for high zoom, keyed by their job (page, scale, rotation, tile).
-    tiles: HashMap<Job, Arc<RenderImage>>,
+    tiles: HashMap<Job, Bitmap>,
     wanted_tiles: HashSet<Job>,
     wanted: HashMap<usize, Job>,
     pending: HashSet<Job>,
@@ -207,6 +259,23 @@ struct Doc {
     text_pending: usize,
     text_requested: Vec<bool>,
     _results: Task<()>,
+}
+
+impl Doc {
+    /// Frees the RAM copy of every bitmap painted last frame, returning whether any was.
+    fn release_uploaded(&mut self) -> bool {
+        let pages = self.pages.values_mut().chain(self.thumbs.values_mut()).map(|p| &mut p.bitmap);
+        let mut released = false;
+        for bitmap in pages.chain(self.tiles.values_mut()) {
+            released |= bitmap.release_if_uploaded();
+        }
+        released
+    }
+
+    fn has_unreleased_shown(&self) -> bool {
+        let pages = self.pages.values().chain(self.thumbs.values()).map(|p| &p.bitmap);
+        pages.chain(self.tiles.values()).any(|b| b.in_ram && b.shown.get())
+    }
 }
 
 /// A match is just a span of a page's text; rects and snippets are built on demand.
@@ -390,6 +459,11 @@ impl VellumApp {
 
     // ---------------------------------------------------------------- opening
 
+    /// True while the window shows the "open a document" placeholder.
+    pub fn is_empty(&self) -> bool {
+        self.doc.is_none() && !self.loading
+    }
+
     pub fn open_path(&mut self, path: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
         self.loading = true;
         self.error = None;
@@ -490,10 +564,10 @@ impl VellumApp {
     fn close_document(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(doc) = self.doc.take() {
             for (_, page) in doc.pages.into_iter().chain(doc.thumbs) {
-                cx.drop_image(page.image, Some(&mut *window));
+                cx.drop_image(page.bitmap.image, Some(&mut *window));
             }
             for (_, tile) in doc.tiles {
-                cx.drop_image(tile, Some(&mut *window));
+                cx.drop_image(tile.image, Some(&mut *window));
             }
         }
     }
@@ -506,8 +580,8 @@ impl VellumApp {
             JobOutput::Image(image) => {
                 if job.kind == JobKind::Tile {
                     if job.rotation == self.rotation && doc.wanted_tiles.contains(&job) {
-                        if let Some(old) = doc.tiles.insert(job, image) {
-                            cx.drop_image(old, Some(window));
+                        if let Some(old) = doc.tiles.insert(job, Bitmap::new(image)) {
+                            cx.drop_image(old.image, Some(window));
                         }
                     } else {
                         cx.drop_image(image, Some(window));
@@ -528,8 +602,8 @@ impl VellumApp {
                     }
                     _ => &mut doc.thumbs,
                 };
-                if let Some(old) = slot.insert(job.page, PageImage { image, job }) {
-                    cx.drop_image(old.image, Some(window));
+                if let Some(old) = slot.insert(job.page, PageImage { bitmap: Bitmap::new(image), job }) {
+                    cx.drop_image(old.bitmap.image, Some(window));
                 }
                 self.renders_dirty = true;
             }
@@ -1221,9 +1295,9 @@ impl VellumApp {
         let (_, sy) = self.scroll_pos();
         let zoom = self.layout.zoom;
         let rotation = self.rotation;
-        // Prefetch generously in the direction of travel.
+        // Prefetch a screen ahead in the direction of travel, half a screen behind.
         let upward = self.smooth.velocity_y() < 0.0;
-        let ahead = if upward { (2.0, 1.0) } else { (1.0, 2.0) };
+        let ahead = if upward { (1.0, 0.5) } else { (0.5, 1.0) };
         let lo = sy - viewport.1 * ahead.0;
         let hi = sy + viewport.1 * (1.0 + ahead.1);
         let rows = self.layout.rows_between(lo, hi);
@@ -1308,7 +1382,7 @@ impl VellumApp {
             let stale: Vec<Job> = doc.tiles.keys().filter(|job| !wanted.contains(job)).copied().collect();
             for job in stale {
                 if let Some(tile) = doc.tiles.remove(&job) {
-                    cx.drop_image(tile, Some(&mut *window));
+                    cx.drop_image(tile.image, Some(&mut *window));
                 }
             }
             want.extend(wanted.iter().copied());
@@ -1324,21 +1398,21 @@ impl VellumApp {
         doc.pool.push_front(new_tiles.into_iter().map(|(_, job)| job));
         doc.pool.push_front(placeholders);
 
-        // Evict bitmaps for pages well outside the viewport.
+        // Evict bitmaps for pages outside the prefetch range; thumbnails stand in if they return.
         if let (Some(first), Some(last)) = (visible.first(), visible.last()) {
-            let keep = first.page.saturating_sub(4)..last.page + 5;
+            let keep = first.page.saturating_sub(1)..last.page + 2;
             let evict: Vec<usize> = doc.pages.keys().copied().filter(|p| !keep.contains(p)).collect();
             for page in evict {
                 if let Some(img) = doc.pages.remove(&page) {
-                    cx.drop_image(img.image, Some(&mut *window));
+                    cx.drop_image(img.bitmap.image, Some(&mut *window));
                 }
                 doc.wanted.remove(&page);
             }
         }
 
-        // Each bitmap lives in RAM and in the GPU atlas; keep the total bounded by
-        // evicting the pages farthest from the screen (their thumbnails remain).
-        let cost = |img: &PageImage| img.image.as_bytes(0).map_or(0, |b| b.len() * 2);
+        // Keep the bitmaps' RAM and GPU total bounded by evicting the pages farthest
+        // from the screen (their thumbnails remain).
+        let cost = |img: &PageImage| img.bitmap.cost();
         let mut total: usize = doc.pages.values().map(cost).sum();
         if total > PAGE_CACHE_BUDGET {
             let mut by_distance: Vec<(f32, usize)> = doc
@@ -1357,7 +1431,7 @@ impl VellumApp {
                 }
                 if let Some(img) = doc.pages.remove(&page) {
                     total -= cost(&img);
-                    cx.drop_image(img.image, Some(&mut *window));
+                    cx.drop_image(img.bitmap.image, Some(&mut *window));
                 }
                 doc.wanted.remove(&page);
             }
@@ -1495,7 +1569,7 @@ impl VellumApp {
             let evict: Vec<usize> = doc.thumbs.keys().copied().filter(|p| !keep.contains(p)).collect();
             for page in evict {
                 if let Some(t) = doc.thumbs.remove(&page) {
-                    cx.drop_image(t.image, Some(&mut *window));
+                    cx.drop_image(t.bitmap.image, Some(&mut *window));
                 }
             }
         }
@@ -1529,8 +1603,9 @@ impl VellumApp {
             .items_center()
             .h(px(TOOLBAR_H))
             .w_full()
-            .pr(px(if is_mac { 12. } else { 0. }))
-            .pl(px(if is_mac { 84. } else { 12. }))
+            // Match the traffic lights' inset at the right edge.
+            .pr(px(if is_mac { 18. } else { 0. }))
+            .pl(px(TOOLBAR_LEFT))
             .gap(px(6.))
             .bg(t.toolbar_bg)
             .border_b_1()
@@ -1568,7 +1643,7 @@ impl VellumApp {
                     .h(px(30.))
                     .rounded(px(8.))
                     .child(
-                        icon_button("sidebar", "icons/sidebar.svg", t, self.sidebar_shown())
+                        icon_button("sidebar", "icons/sidebar.svg", t, false)
                             .tooltip(tip("Show Sidebar", Some(shortcut("⌥⌘S", "Ctrl+Alt+S")), *t))
                             .rounded_l(px(8.))
                             .rounded_r(px(0.))
@@ -1876,7 +1951,7 @@ impl VellumApp {
             .map(|page| {
                 let (y, w, h) = items[page];
                 let selected = page == current || (pair && page == (current - current % 2) + 1 && page < items.len());
-                let thumb = doc.thumbs.get(&page).map(|t| t.image.clone());
+                let thumb = doc.thumbs.get(&page).map(|t| t.bitmap.paint());
                 div()
                     .id(("thumb", page))
                     .absolute()
@@ -1901,7 +1976,9 @@ impl VellumApp {
                                     .border_1()
                                     .border_color(t.page_border)
                                     .shadow_sm()
-                                    .when_some(thumb, |d, image| d.child(img(image).size_full())),
+                                    .when_some(thumb, |d, image| {
+                                        d.child(bitmap_img(image, w, h))
+                                    }),
                             ),
                     )
                     .child(
@@ -2014,6 +2091,7 @@ impl VellumApp {
         )
         .track_scroll(&self.toc_scroll)
         .size_full()
+        .py(px(6.))
         .into_any_element()
     }
 
@@ -2028,13 +2106,13 @@ impl VellumApp {
                 let expanded = self.toc_expanded.contains(&ix);
                 let selected = Some(ix) == current_item;
                 let page = item.page;
-                div()
+                let row = div()
                     .id(("toc", ix))
                     .flex()
                     .items_center()
                     .gap(px(2.))
+                    .w_full()
                     .h(px(24.))
-                    .mx(px(8.))
                     .pl(px(4. + item.depth as f32 * 14.))
                     .pr(px(8.))
                     .rounded(px(5.))
@@ -2081,8 +2159,8 @@ impl VellumApp {
                                 .child(format!("{}", p + 1)),
                         )
                         .on_click(cx.listener(move |this, _, _, cx| this.go_to_page(p, cx)))
-                    })
-                    .into_any_element()
+                    });
+                div().w_full().px(px(8.)).child(row).into_any_element()
             })
             .collect()
     }
@@ -2207,8 +2285,8 @@ impl VellumApp {
         for row in self.layout.rows_between(lo, hi) {
             for slot in self.layout.row_slots(row) {
                 let page = slot.page;
-                let image = doc.pages.get(&page).filter(|p| p.job.rotation == rotation).map(|p| p.image.clone());
-                let fallback = image.is_none().then(|| doc.thumbs.get(&page).filter(|p| p.job.rotation == rotation).map(|p| p.image.clone())).flatten();
+                let image = doc.pages.get(&page).filter(|p| p.job.rotation == rotation).map(|p| p.bitmap.paint());
+                let fallback = image.is_none().then(|| doc.thumbs.get(&page).filter(|p| p.job.rotation == rotation).map(|p| p.bitmap.paint())).flatten();
                 let (w, h) = doc.info.page_sizes[page];
                 let to_display = |r: &kurbo::Rect| page_to_display(*r, rotation, w, h, zoom);
                 // Highlights, matches and the selection are painted as plain quads in one pass.
@@ -2247,7 +2325,9 @@ impl VellumApp {
                         .cursor(CursorStyle::IBeam)
                         // The page bitmap fills the whole box (a border would squeeze it and
                         // resample the text); the hairline is drawn just outside instead.
-                        .when_some(image.or(fallback), |d, image| d.child(img(image).size_full()))
+                        .when_some(image.or(fallback), |d, image| {
+                            d.child(bitmap_img(image, slot.w, slot.h))
+                        })
                         .children(
                             // Sharp tiles over the (lower resolution) whole-page backdrop. Each
                             // is placed by its own scale, so tiles stay aligned while zooming.
@@ -2256,13 +2336,11 @@ impl VellumApp {
                                 .filter(|(job, _)| job.page == page && job.rotation == rotation)
                                 .map(|(job, tile)| {
                                     let per_device = zoom / (job.scale_micro as f32 / 1_000_000.0);
-                                    let size = tile.size(0);
-                                    img(tile.clone())
+                                    let (w, h) = (tile.size.width.0 as f32, tile.size.height.0 as f32);
+                                    bitmap_img(tile.paint(), w * per_device, h * per_device)
                                         .absolute()
                                         .left(px(job.tile.0 as f32 * TILE as f32 * per_device))
                                         .top(px(job.tile.1 as f32 * TILE as f32 * per_device))
-                                        .w(px(size.width.0 as f32 * per_device))
-                                        .h(px(size.height.0 as f32 * per_device))
                                 }),
                         )
                         .when(!quads.is_empty(), |d| d.child(overlay_canvas(quads)))
@@ -2580,14 +2658,13 @@ impl VellumApp {
 
     fn render_popover(&self, t: &Theme, cx: &mut Context<Self>) -> Option<AnyElement> {
         let popover = self.popover?;
-        let is_mac = cfg!(target_os = "macos");
         let menu = match popover {
             Popover::ViewMenu => {
                 let sidebar = self.sidebar_visible;
                 let mode = self.sidebar_mode;
                 let display = self.display;
                 menu_panel(t)
-                    .left(px(if is_mac { 84. } else { 12. }))
+                    .left(px(TOOLBAR_LEFT))
                     .child(menu_item("m-hide", "Hide Sidebar", !sidebar, Some("⌥⌘1"), t).on_click(
                         cx.listener(|this, _, _, cx| {
                             this.sidebar_visible = false;
@@ -2908,6 +2985,11 @@ impl Render for VellumApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let t = Theme::for_appearance(window.appearance());
         let viewport = self.viewport(window);
+        // Bitmaps painted last frame are in the GPU atlas now. Draw once more after releasing
+        // them so GPUI drops last frame's elements, which still hold the pixels.
+        if self.doc.as_mut().is_some_and(|doc| doc.release_uploaded()) {
+            window.request_animation_frame();
+        }
 
         // Rebuild the layout only when its inputs change; keep the user's place when
         // zoom or arrangement changes.
@@ -2975,6 +3057,10 @@ impl Render for VellumApp {
         let popover = self.render_popover(&t, cx);
         let inspector = self.render_inspector(&t, cx);
         let goto = self.render_goto_sheet(&t, window, cx);
+        // Bitmaps shown for the first time are released next frame; make sure there is one.
+        if self.doc.as_ref().is_some_and(|doc| doc.has_unreleased_shown()) {
+            window.request_animation_frame();
+        }
 
         div()
             .id("root")
@@ -3192,6 +3278,16 @@ fn caption_buttons(t: &Theme, window: &Window) -> impl IntoElement {
             WindowControlArea::Max,
         ))
         .child(button("caption-close", "\u{e8bb}", WindowControlArea::Close))
+}
+
+/// Paints a bitmap's image into a `w` x `h` box. The aspect ratio is explicit because GPUI
+/// otherwise takes it from the pixels, and a released bitmap's stand-in is 1x1.
+fn bitmap_img(image: Arc<RenderImage>, w: f32, h: f32) -> gpui::Img {
+    img(image)
+        .w(px(w))
+        .h(px(h))
+        .aspect_ratio(w / h)
+        .object_fit(ObjectFit::Fill)
 }
 
 fn menu_panel(t: &Theme) -> gpui::Div {
