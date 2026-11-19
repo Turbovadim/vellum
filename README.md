@@ -1,8 +1,8 @@
 # Vellum
 
 A fast, good-looking PDF viewer inspired by macOS Preview, written in Rust with
-[GPUI](https://github.com/zed-industries/zed/tree/main/crates/gpui) (Zed's UI framework, used straight from the Zed
-repo) and the pure-Rust [hayro](https://github.com/LaurenzV/hayro) rasterizer. No native PDF libraries, no web view.
+GPUI (Zed's UI framework) through [gpui-bisquit](https://github.com/Bisquit-Host/gpui-bisquit), a gpui-fast fork with
+retained views and scroll layers, and the pure-Rust [hayro](https://github.com/LaurenzV/hayro) rasterizer. No native PDF libraries, no web view.
 
 ![Vellum showing a search in a document](docs/screenshot.png)
 
@@ -78,6 +78,8 @@ Builds a release `Vellum.app` into `~/Applications` and registers it as a PDF vi
 | Page navigation | ←/→, PgUp/PgDn, Home/End, Space |
 
 `VELLUM_APPEARANCE=light` or `dark` overrides the system appearance.
+`GPUI_VIEW_RETENTION=0` and `GPUI_SCROLL_LAYERS=0` turn off retained views and scroll layers, to tell a stale view
+from a renderer bug.
 
 ## Limitations
 
