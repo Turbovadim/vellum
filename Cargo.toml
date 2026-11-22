@@ -10,8 +10,8 @@ repository = "https://github.com/Turbovadim/vellum"
 hayro = "0.8"
 # Same vello_cpu hayro uses, with parallel rasterization enabled.
 vello_cpu = { version = "0.3", default-features = false, features = ["std", "u8_pipeline", "multithreading"] }
-gpui = { git = "https://github.com/Bisquit-Host/gpui-bisquit", rev = "e3260a4f2891fd645dbb3e0f8b3f8d820c69338c" }
-gpui_platform = { git = "https://github.com/Bisquit-Host/gpui-bisquit", rev = "e3260a4f2891fd645dbb3e0f8b3f8d820c69338c", features = ["font-kit", "runtime_shaders"] }
+gpui = { git = "https://github.com/Bisquit-Host/gpui-bisquit", rev = "175be318307216ec9305246e15c1dfadddbe40bc" }
+gpui_platform = { git = "https://github.com/Bisquit-Host/gpui-bisquit", rev = "175be318307216ec9305246e15c1dfadddbe40bc", features = ["font-kit", "runtime_shaders"] }
 image = { version = "0.25", default-features = false }
 smallvec = "1"
 async-channel = "2"

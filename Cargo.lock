@@ -661,20 +661,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f079e83a288787bcd14a6aea84cee5c87a67c5a3e660c30f557a3d24761b3527"
 
 [[package]]
-name = "chrono"
-version = "0.4.45"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1aa79e62e7697b8e29b513a68abacf485adcd1fe8284a4316c5ae868e6633327"
-dependencies = [
- "iana-time-zone",
- "js-sys",
- "num-traits",
- "serde",
- "wasm-bindgen",
- "windows-link 0.2.1",
-]
-
-[[package]]
 name = "cipher"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -729,7 +715,7 @@ dependencies = [
 [[package]]
 name = "collections"
 version = "0.1.0"
-source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=e3260a4f2891fd645dbb3e0f8b3f8d820c69338c#e3260a4f2891fd645dbb3e0f8b3f8d820c69338c"
+source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=175be318307216ec9305246e15c1dfadddbe40bc#175be318307216ec9305246e15c1dfadddbe40bc"
 dependencies = [
  "gpui_util",
  "indexmap",
@@ -1026,7 +1012,7 @@ dependencies = [
 [[package]]
 name = "derive_refineable"
 version = "0.1.0"
-source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=e3260a4f2891fd645dbb3e0f8b3f8d820c69338c#e3260a4f2891fd645dbb3e0f8b3f8d820c69338c"
+source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=175be318307216ec9305246e15c1dfadddbe40bc#175be318307216ec9305246e15c1dfadddbe40bc"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1687,7 +1673,7 @@ dependencies = [
 [[package]]
 name = "gpui"
 version = "0.2.2"
-source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=e3260a4f2891fd645dbb3e0f8b3f8d820c69338c#e3260a4f2891fd645dbb3e0f8b3f8d820c69338c"
+source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=175be318307216ec9305246e15c1dfadddbe40bc#175be318307216ec9305246e15c1dfadddbe40bc"
 dependencies = [
  "accesskit",
  "anyhow",
@@ -1695,7 +1681,6 @@ dependencies = [
  "async-task",
  "backtrace",
  "bitflags 2.13.2",
- "chrono",
  "collections",
  "derive_more",
  "embed-resource",
@@ -1711,6 +1696,7 @@ dependencies = [
  "image",
  "inventory",
  "itertools",
+ "jiff",
  "libc",
  "log",
  "lyon",
@@ -1752,7 +1738,7 @@ dependencies = [
 [[package]]
 name = "gpui_apple"
 version = "0.1.0"
-source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=e3260a4f2891fd645dbb3e0f8b3f8d820c69338c#e3260a4f2891fd645dbb3e0f8b3f8d820c69338c"
+source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=175be318307216ec9305246e15c1dfadddbe40bc#175be318307216ec9305246e15c1dfadddbe40bc"
 dependencies = [
  "anyhow",
  "async-task",
@@ -1791,7 +1777,7 @@ dependencies = [
 [[package]]
 name = "gpui_ios"
 version = "0.1.0"
-source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=e3260a4f2891fd645dbb3e0f8b3f8d820c69338c#e3260a4f2891fd645dbb3e0f8b3f8d820c69338c"
+source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=175be318307216ec9305246e15c1dfadddbe40bc#175be318307216ec9305246e15c1dfadddbe40bc"
 dependencies = [
  "anyhow",
  "block2 0.6.2",
@@ -1812,7 +1798,7 @@ dependencies = [
 [[package]]
 name = "gpui_linux"
 version = "0.1.0"
-source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=e3260a4f2891fd645dbb3e0f8b3f8d820c69338c#e3260a4f2891fd645dbb3e0f8b3f8d820c69338c"
+source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=175be318307216ec9305246e15c1dfadddbe40bc#175be318307216ec9305246e15c1dfadddbe40bc"
 dependencies = [
  "accesskit",
  "anyhow",
@@ -1839,7 +1825,7 @@ dependencies = [
 [[package]]
 name = "gpui_macos"
 version = "0.1.0"
-source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=e3260a4f2891fd645dbb3e0f8b3f8d820c69338c#e3260a4f2891fd645dbb3e0f8b3f8d820c69338c"
+source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=175be318307216ec9305246e15c1dfadddbe40bc#175be318307216ec9305246e15c1dfadddbe40bc"
 dependencies = [
  "accesskit",
  "accesskit_macos",
@@ -1871,6 +1857,7 @@ dependencies = [
  "raw-window-handle",
  "scheduler",
  "semver",
+ "serde_json",
  "smallvec",
  "strum",
  "uuid",
@@ -1879,7 +1866,7 @@ dependencies = [
 [[package]]
 name = "gpui_macros"
 version = "0.1.0"
-source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=e3260a4f2891fd645dbb3e0f8b3f8d820c69338c#e3260a4f2891fd645dbb3e0f8b3f8d820c69338c"
+source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=175be318307216ec9305246e15c1dfadddbe40bc#175be318307216ec9305246e15c1dfadddbe40bc"
 dependencies = [
  "heck 0.5.0",
  "proc-macro2",
@@ -1890,7 +1877,7 @@ dependencies = [
 [[package]]
 name = "gpui_platform"
 version = "0.1.0"
-source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=e3260a4f2891fd645dbb3e0f8b3f8d820c69338c#e3260a4f2891fd645dbb3e0f8b3f8d820c69338c"
+source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=175be318307216ec9305246e15c1dfadddbe40bc#175be318307216ec9305246e15c1dfadddbe40bc"
 dependencies = [
  "anyhow",
  "console_error_panic_hook",
@@ -1905,7 +1892,7 @@ dependencies = [
 [[package]]
 name = "gpui_shared_string"
 version = "0.1.0"
-source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=e3260a4f2891fd645dbb3e0f8b3f8d820c69338c#e3260a4f2891fd645dbb3e0f8b3f8d820c69338c"
+source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=175be318307216ec9305246e15c1dfadddbe40bc#175be318307216ec9305246e15c1dfadddbe40bc"
 dependencies = [
  "schemars",
  "serde",
@@ -1915,7 +1902,7 @@ dependencies = [
 [[package]]
 name = "gpui_util"
 version = "0.1.0"
-source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=e3260a4f2891fd645dbb3e0f8b3f8d820c69338c#e3260a4f2891fd645dbb3e0f8b3f8d820c69338c"
+source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=175be318307216ec9305246e15c1dfadddbe40bc#175be318307216ec9305246e15c1dfadddbe40bc"
 dependencies = [
  "anyhow",
  "log",
@@ -1925,7 +1912,7 @@ dependencies = [
 [[package]]
 name = "gpui_web"
 version = "0.1.0"
-source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=e3260a4f2891fd645dbb3e0f8b3f8d820c69338c#e3260a4f2891fd645dbb3e0f8b3f8d820c69338c"
+source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=175be318307216ec9305246e15c1dfadddbe40bc#175be318307216ec9305246e15c1dfadddbe40bc"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -1954,7 +1941,7 @@ dependencies = [
 [[package]]
 name = "gpui_wgpu"
 version = "0.1.0"
-source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=e3260a4f2891fd645dbb3e0f8b3f8d820c69338c#e3260a4f2891fd645dbb3e0f8b3f8d820c69338c"
+source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=175be318307216ec9305246e15c1dfadddbe40bc#175be318307216ec9305246e15c1dfadddbe40bc"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -1979,7 +1966,7 @@ dependencies = [
 [[package]]
 name = "gpui_windows"
 version = "0.1.0"
-source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=e3260a4f2891fd645dbb3e0f8b3f8d820c69338c#e3260a4f2891fd645dbb3e0f8b3f8d820c69338c"
+source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=175be318307216ec9305246e15c1dfadddbe40bc#175be318307216ec9305246e15c1dfadddbe40bc"
 dependencies = [
  "accesskit",
  "accesskit_windows",
@@ -2235,7 +2222,7 @@ dependencies = [
 [[package]]
 name = "http_client"
 version = "0.1.0"
-source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=e3260a4f2891fd645dbb3e0f8b3f8d820c69338c#e3260a4f2891fd645dbb3e0f8b3f8d820c69338c"
+source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=175be318307216ec9305246e15c1dfadddbe40bc#175be318307216ec9305246e15c1dfadddbe40bc"
 dependencies = [
  "anyhow",
  "bytes",
@@ -2247,30 +2234,6 @@ dependencies = [
  "serde_json",
  "serde_urlencoded",
  "url",
-]
-
-[[package]]
-name = "iana-time-zone"
-version = "0.1.65"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e31bc9ad994ba00e440a8aa5c9ef0ec67d5cb5e5cb0cc7f8b744a35b389cc470"
-dependencies = [
- "android_system_properties",
- "core-foundation-sys",
- "iana-time-zone-haiku",
- "js-sys",
- "log",
- "wasm-bindgen",
- "windows-core 0.62.2",
-]
-
-[[package]]
-name = "iana-time-zone-haiku"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f31827a206f56af32e590ba56d5d2d085f558508192593743f16b2306495269f"
-dependencies = [
- "cc",
 ]
 
 [[package]]
@@ -2524,6 +2487,60 @@ name = "itoa"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
+
+[[package]]
+name = "jiff"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c5e77cbfb9fff4798e283c2d69dff39fc2c45e7da017e5ce95b654e46ea41236"
+dependencies = [
+ "jiff-core",
+ "jiff-static",
+ "jiff-tzdb-platform",
+ "js-sys",
+ "log",
+ "portable-atomic",
+ "portable-atomic-util",
+ "serde_core",
+ "wasm-bindgen",
+ "windows-link 0.2.1",
+]
+
+[[package]]
+name = "jiff-core"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6b46a105a9874634dd96231021526bf24ca04955a5998c59a9c7666e634b7b8"
+dependencies = [
+ "log",
+]
+
+[[package]]
+name = "jiff-static"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e9067a0b23e5be3147d56b2dcf652b18e6b1364caca93fb157653b6fbcab23a9"
+dependencies = [
+ "jiff-core",
+ "proc-macro2",
+ "quote",
+ "syn 3.0.9",
+]
+
+[[package]]
+name = "jiff-tzdb"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12e71a1b68a875a44a33bb7a1dd84392cb77145a3367a552a3cfe6a4f5cf3afc"
+
+[[package]]
+name = "jiff-tzdb-platform"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc65b284afcfa8f6cf189c7274c805505314a7ab975c60e1f548bff56525420e"
+dependencies = [
+ "jiff-tzdb",
+]
 
 [[package]]
 name = "jni-sys"
@@ -4155,7 +4172,7 @@ dependencies = [
 [[package]]
 name = "refineable"
 version = "0.1.0"
-source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=e3260a4f2891fd645dbb3e0f8b3f8d820c69338c#e3260a4f2891fd645dbb3e0f8b3f8d820c69338c"
+source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=175be318307216ec9305246e15c1dfadddbe40bc#175be318307216ec9305246e15c1dfadddbe40bc"
 dependencies = [
  "derive_refineable",
 ]
@@ -4318,11 +4335,10 @@ dependencies = [
 [[package]]
 name = "scheduler"
 version = "0.1.0"
-source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=e3260a4f2891fd645dbb3e0f8b3f8d820c69338c#e3260a4f2891fd645dbb3e0f8b3f8d820c69338c"
+source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=175be318307216ec9305246e15c1dfadddbe40bc#175be318307216ec9305246e15c1dfadddbe40bc"
 dependencies = [
  "async-task",
  "backtrace",
- "chrono",
  "flume",
  "futures",
  "parking_lot",
@@ -4733,7 +4749,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 [[package]]
 name = "sum_tree"
 version = "0.1.0"
-source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=e3260a4f2891fd645dbb3e0f8b3f8d820c69338c#e3260a4f2891fd645dbb3e0f8b3f8d820c69338c"
+source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=175be318307216ec9305246e15c1dfadddbe40bc#175be318307216ec9305246e15c1dfadddbe40bc"
 dependencies = [
  "heapless",
  "rayon",
@@ -6447,7 +6463,7 @@ checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
 [[package]]
 name = "ztracing"
 version = "0.1.0"
-source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=e3260a4f2891fd645dbb3e0f8b3f8d820c69338c#e3260a4f2891fd645dbb3e0f8b3f8d820c69338c"
+source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=175be318307216ec9305246e15c1dfadddbe40bc#175be318307216ec9305246e15c1dfadddbe40bc"
 dependencies = [
  "tracing",
  "ztracing_macro",
@@ -6456,7 +6472,7 @@ dependencies = [
 [[package]]
 name = "ztracing_macro"
 version = "0.1.0"
-source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=e3260a4f2891fd645dbb3e0f8b3f8d820c69338c#e3260a4f2891fd645dbb3e0f8b3f8d820c69338c"
+source = "git+https://github.com/Bisquit-Host/gpui-bisquit?rev=175be318307216ec9305246e15c1dfadddbe40bc#175be318307216ec9305246e15c1dfadddbe40bc"
 
 [[package]]
 name = "zune-core"
